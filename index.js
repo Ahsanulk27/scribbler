@@ -75,6 +75,6 @@ app.get("/create", (req, res) => {
 });
 
 // Start the server
-// app.listen(port, () => {
-//   console.log(`Listening on port ${port}`);
-// });
+app.listen(port, () => {
+  console.log(`Listening on port ${port}`);
+});
