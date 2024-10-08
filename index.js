@@ -2,14 +2,14 @@ import express from "express";
 import bodyParser from "body-parser";
 
 const app = express();
-const port = 3000;
+const port = process.env.PORT || 3000;
 import cors from "cors";
 const corsConfig = {
   origin: "*",
-  Credential: true,
+  credentials: true, // Fix the typo here
   methods: ["GET", "POST", "PUT", "DELETE"],
-} ;
-app.options("", cors(corsConfig));
+};
+
 app.use(cors(corsConfig));
 
 app.use(express.static("public"));
