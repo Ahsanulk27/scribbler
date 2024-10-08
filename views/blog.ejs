@@ -1,0 +1,26 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <link rel="stylesheet" href="/styles/main.css">
+    <title><%= blog.title %></title>
+</head>
+<body>
+    <%- include('partials/header') %>
+    
+    <main class="blog-container">
+        <h1 class="blog-title"><%= blog.title %></h1>
+        <p class="card-date"><%= blog.date %></p>
+        <div class="blog-content">
+            <p><%= blog.content %></p>
+        </div>
+
+        <a href="/explore" class="back-button">Back to Explore</a>
+    </main>
+
+    <%- include('partials/footer') %>
+</body>
+</html>
+
+<!-- match the css of the /blog page with the overall font and design -->

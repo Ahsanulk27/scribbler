@@ -1,0 +1,41 @@
+
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <link rel="stylesheet" href="/styles/main.css">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Elsie:wght@400;900&display=swap" rel="stylesheet">
+  <title>Create Blog</title>
+</head>
+<body>
+    <%- include('partials/header') %>
+    <main>
+        <section class="blog-cards">
+            <% if (blogs.length === 0) { %>
+                <p>No blogs available yet. Be the first to <a href="/create">create one</a>!</p>
+            <% } else { %>
+                <% blogs.forEach(blog => { %>
+                    <div class="blog-card">
+                        <div class="card-content">
+                            <h2 class="card-title"><%= blog.title %></h2>
+                            <p class="card-date"><%= blog.date %></p>
+                            <p class="card-excerpt"><%= blog.content.substring(0, 100) %>...</p>
+                            <a href="/blog/<%= blog.id %>" class="read-more">Continue reading</a>
+    
+                            <!-- Add Delete Button -->
+                            <form action="/delete-blog/<%= blog.id %>" method="POST" onsubmit="return confirm('Are you sure you want to delete this blog?');">
+                                <button type="submit" class="delete-button">Delete</button>
+                            </form>
+                        </div>
+                    </div>
+                <% }) %>
+            <% } %>
+        </section>
+    </main>
+    
+    <%- include('partials/footer') %>
+</body>
+</html>
