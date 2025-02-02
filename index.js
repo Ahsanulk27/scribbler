@@ -233,17 +233,22 @@ passport.use(
     },
     async function (request, accessToken, refreshToken, profile, done) {
       try {
+        console.log("Profile from Google:", profile);
+        // Example: Search for an existing user in your DB
         const result = await db.query("SELECT * FROM users WHERE google_id = $1", [profile.id]);
         if (result.rows.length === 0) {
+          // Create a new user if none exist
           const newUser = await db.query(
             "INSERT INTO users (google_id, email, name) VALUES ($1, $2, $3) RETURNING *",
             [profile.id, profile.email, profile.displayName]
           );
           return done(null, newUser.rows[0]);
         }
+        // Found the user, return it
         return done(null, result.rows[0]);
-      } catch (err) {
-        return done(err);
+      } catch (error) {
+        console.error("Error in GoogleStrategy callback:", error);
+        return done(error, null);
       }
     }
   )
