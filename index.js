@@ -273,10 +273,3 @@ app.post("/comment/:id", async (req, res) => {
         res.status(500).send("Error submitting comment");
     }
 });
-
-// un-comment out the authentication code
-// implement google authentication properly with proper salted hashed passwords
-// implment database relations if necessary between the two tables created in pg
-// make sure only owner of a blog can delete a blog
-// have spearate sections for user blogs and public blogs (optional) 
-// fix the header for other pages when user already logged in
