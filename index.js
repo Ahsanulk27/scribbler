@@ -15,7 +15,7 @@ const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
 const app = express();
-const port = process.env.PORT || 3000;
+const port = process.env.PORT || 10000;
 import cors from "cors";
 const corsConfig = {
   origin: "*",
@@ -171,6 +171,22 @@ app.post("/submit-blog", async (req, res) => {
   res.redirect("/explore");
 });
 
+app.post("/comment/:id", async (req, res) => {
+  if (!req.isAuthenticated()) {
+    return res.redirect("/auth/signin");
+  }
+  try {
+    const { content } = req.body;
+    const blogId = req.params.id;
+    await db.query("INSERT INTO comments (blog_id, user_id, content) VALUES ($1, $2, $3)", [blogId, req.user.id, content]);
+    res.redirect(`/blog/${blogId}`);
+  } catch (err) {
+    console.error("Error submitting comment:", err);
+    res.status(500).send("Error submitting comment");
+  }
+});
+
+
 // Route to delete any blog post
 app.post("/delete-blog/:id", async (req, res) => {
   try {
@@ -233,21 +249,7 @@ passport.use(
   )
 );
 
-app.listen(port, () => {
-  console.log(`Listening on port ${port}`);
+app.listen(port, "0.0.0.0", () => {
+  console.log(`Listening on port ${port} and binding to 0.0.0.0`);
 });
 
-app.post("/comment/:id", async (req, res) => {
-  if (!req.isAuthenticated()) {
-    return res.redirect("/auth/signin");
-  }
-  try {
-    const { content } = req.body;
-    const blogId = req.params.id;
-    await db.query("INSERT INTO comments (blog_id, user_id, content) VALUES ($1, $2, $3)", [blogId, req.user.id, content]);
-    res.redirect(`/blog/${blogId}`);
-  } catch (err) {
-    console.error("Error submitting comment:", err);
-    res.status(500).send("Error submitting comment");
-  }
-});
