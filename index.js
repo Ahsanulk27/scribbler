@@ -9,7 +9,7 @@ import { Strategy } from "passport-local";
 import GoogleStrategy from "passport-google-oauth2";
 import session from "express-session";
 import env from "dotenv";
-import MongoStore from "connect-mongo";
+import pgSession from "connect-pg-simple";
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -25,14 +25,13 @@ const corsConfig = {
 
 env.config();
 
-const db = new pg.Client({
+const pgPool = new pg.Pool({
   user: process.env.PG_USER,
   host: process.env.PG_HOST,
   database: process.env.PG_DATABASE,
   password: process.env.PG_PASSWORD,
   port: process.env.PG_PORT,
 });
-db.connect();
 
 app.use(cors(corsConfig));
 
@@ -41,12 +40,13 @@ app.set('view engine', 'ejs');
 app.set('views', path.join(__dirname, 'views'));
 app.use(bodyParser.urlencoded({ extended: true }));
 
-// Use MongoStore with connect-mongo for persistent session storage with local MongoDB
+const PGStore = pgSession(session);
+
 app.use(
   session({
-    store: MongoStore.create({
-      // Local MongoDB connection string. Make sure your local MongoDB server is running.
-      mongoUrl: "mongodb://localhost:27017/sessions",
+    store: new PGStore({
+      pool: pgPool,
+      tableName: "session",
     }),
     secret: process.env.SESSION_SECRET,
     resave: false,
