@@ -7,14 +7,40 @@
     <title><%= blog.title %></title>
 </head>
 <body>
-    <%- include('partials/header') %>
+    <%- include('partials/header', { currentUser: currentUser }) %>
     
     <main class="blog-container">
         <h1 class="blog-title"><%= blog.title %></h1>
-        <p class="card-date"><%= blog.date %></p>
+        <p class="card-date"><%= new Date(blog.date).toLocaleDateString() %></p>
         <div class="blog-content">
             <p><%= blog.content %></p>
         </div>
+
+        <% if (currentUser && currentUser.id === blog.user_id) { %>
+            <form action="/delete-blog/<%= blog.id %>" method="POST">
+                <button type="submit" class="delete-button">Delete</button>
+            </form>
+        <% } %>
+        <hr>
+        <h2>Comments</h2>
+        <div class="comments-section">
+            <% comments.forEach(comment => { %>
+                <div class="comment">
+                    <p><strong><%= comment.author_name %></strong> <em><%= new Date(comment.date).toLocaleDateString() %></em></p>
+                    <p><%= comment.content %></p>
+                </div>
+            <% }) %>
+        </div>
+
+        <% if (currentUser) { %>
+            <form action="/comment/<%= blog.id %>" method="POST">
+                <textarea name="content" required placeholder="Add a comment..."></textarea>
+                <button type="submit">Submit Comment</button>
+            </form>
+        <% } else { %>
+            <p>You must be signed in to comment.</p>
+        <% } %>
+        <hr>
 
         <a href="/explore" class="back-button">Back to Explore</a>
     </main>
@@ -22,5 +48,3 @@
     <%- include('partials/footer') %>
 </body>
 </html>
-
-<!-- match the css of the /blog page with the overall font and design -->

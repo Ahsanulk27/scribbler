@@ -1,9 +1,17 @@
 <header>
     <nav>
-        <ul>
+        <ul class="nav-left">
             <li><a href="/">Home</a></li>
             <li><a href="/create">Create</a></li>
             <li><a href="/explore">Explore</a></li>
+        </ul>
+        <ul class="nav-right">
+            <% if (currentUser) { %>
+                <li class="user-name">Welcome, <%= currentUser.name %></li>
+                <li><a href="/auth/logout" class="signout-btn">Sign Out</a></li>
+            <% } else { %>
+                <li><a href="/auth/google" class="signin-btn">Sign In with Create</a></li>
+            <% } %>
         </ul>
     </nav>
 </header>

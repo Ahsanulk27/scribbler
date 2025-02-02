@@ -13,23 +13,45 @@ header {
     background-color: #000000;
 }
 
-nav ul {
-    list-style-type: none;
+nav {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 1rem 2rem;
+}
+
+.nav-left, .nav-right {
+    display: flex;
+    list-style: none;
     margin: 0;
     padding: 0;
 }
 
-nav ul li {
-    display: inline;
-    margin: 0 15px;
+.nav-left li {
+    margin-right: 2rem;
 }
 
-nav ul li a {
-    
-    
+.nav-right .signin-btn {
+    padding: 0.5rem 1rem;
+    background-color: #000000;
+    color: white;
+    border: 2px solid #a78c59a6;
+    border-radius: 3%;
+    text-decoration: none;
+    transition: background-color 0.3s ease;
+}
+
+.nav-right .signin-btn:hover {
+    background-color: #666;
+}
+
+nav a {
     text-decoration: none;
     color: #d8c3b7;
-    font-size: 20px;
+}
+
+nav a:hover {
+    color: #666;
 }
 
 .hero {
@@ -314,3 +336,139 @@ hr{
     text-decoration: underline; /* Adds underline */
     
 }
+
+.user-name {
+    margin-right: 1rem;
+    color: #d8c3b7;
+}
+
+.signout-btn {
+    padding: 0.5rem 1rem;
+    background-color: #000000;
+    border: #d8c3b7 solid 2px;
+    color: #d8c3b7;
+    border-radius: 4px;
+    text-decoration: none;
+    transition: background-color 0.3s ease;
+}
+
+.signout-btn:hover {
+    background-color: #b9b5b5;
+}
+
+.my-blogs-section,
+.other-blogs-section {
+    margin: 2rem 0;
+    padding: 0 1rem;
+}
+
+.my-blogs-section h2,
+.other-blogs-section h2 {
+    color: #9c9c9c;
+    margin-bottom: 1.5rem;
+    padding-bottom: 0.5rem;
+    border-bottom: 2px solid #eee;
+}
+
+.blog-cards {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+    gap: 2rem;
+}
+
+.card-actions {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-top: 1rem;
+}
+
+.card-author {
+    color: #8a8888;
+    font-style: italic;
+    font-weight: 500;
+    margin: 0.5rem 0;
+}
+
+.delete-button {
+    background-color: #dc3545;
+    color: white;
+    border: none;
+    padding: 0.5rem 1rem;
+    border-radius: 4px;
+    cursor: pointer;
+    transition: background-color 0.3s ease;
+}
+
+.delete-button:hover {
+    background-color: #c82333;
+}
+
+/* Styles for the comments section */
+.comments-section {
+    margin-top: 2rem; /* Space above the comments section */
+    padding: 1rem;
+    border-top: 1px solid #ccc; /* Top border to separate from the blog content */
+}
+
+.comment {
+    margin-bottom: 1rem; /* Space between individual comments */
+    padding: 0.5rem;
+    border: 1px solid #ddd; /* Border around each comment */
+    border-radius: 5px; /* Rounded corners */
+    background-color: #1a1a1a; /* Light background for comments */
+}
+
+.comment p {
+    margin: 0; /* Remove default margin for paragraphs */
+}
+
+.comment strong {
+    color: #818181; /* Darker color for the author's name */
+}
+
+.comment em {
+    color: #777; /* Lighter color for the date */
+    font-size: 0.9em; /* Slightly smaller font size for the date */
+}
+
+/* Styles for the comment form */
+form {
+    margin-top: 1rem; /* Space above the form */
+
+}
+
+textarea {
+    width: 100%; /* Full width for the textarea */
+    height: 100px; /* Fixed height for the textarea */
+    padding: 0.5rem; /* Padding inside the textarea */
+    border: 1px solid #ccc; /* Border for the textarea */
+    border-radius: 5px; /* Rounded corners */
+    resize: none; /* Disable resizing */
+    background-color: #1a1a1a;
+    
+}
+textarea:focus {
+    color: #d8c3b7 /* Text color when typing */
+}
+
+button[type="submit"] {
+    margin-top: 0.5rem; /* Space above the button */
+    font-family: 'Elsie', serif;
+    font-size: 1.2rem;
+    font-weight: 600;
+    padding: 0.5rem 1rem; /* Padding inside the button */
+    background-color: #d8c3b7; /* Primary button color */
+    color: #1a1a1a; /* Text color */
+    border: none; /* Remove border */
+    border-radius: 5px; /* Rounded corners */
+    cursor: pointer; /* Pointer cursor on hover */
+    transition: background-color 0.3s; /* Smooth transition for hover effect */
+}
+
+button[type="submit"]:hover {
+    background-color: #85776f; /* Darker shade on hover */
+    /* padding-bottom: 10px; */
+
+}
+

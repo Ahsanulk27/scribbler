@@ -2,10 +2,18 @@ import express from "express";
 import bodyParser from "body-parser";
 import path from "path";
 import { fileURLToPath } from "url";
+import pg from "pg";
+import bcrypt from "bcrypt";
+import passport from "passport";
+import { Strategy } from "passport-local";
+import GoogleStrategy from "passport-google-oauth2";
+import session from "express-session";
+import env from "dotenv";
+
+
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
-
 
 const app = express();
 const port = process.env.PORT || 3000;
@@ -16,6 +24,17 @@ const corsConfig = {
   methods: ["GET", "POST", "PUT", "DELETE"],
 };
 
+env.config();
+
+const db = new pg.Client({
+  user: process.env.PG_USER,
+  host: process.env.PG_HOST,
+  database: process.env.PG_DATABASE,
+  password: process.env.PG_PASSWORD,
+  port: process.env.PG_PORT,
+});
+db.connect();
+
 app.use(cors(corsConfig));
 
 app.use(express.static("public"));
@@ -23,65 +42,241 @@ app.set('view engine', 'ejs');
 app.set('views', path.join(__dirname, 'views'));
 app.use(bodyParser.urlencoded({ extended: true }));
 
-// Array to store blogs
-const blogs = [];
+app.use(
+  session({
+    secret: process.env.SESSION_SECRET,
+    resave: false,
+    saveUninitialized: true,
+    cookie: {
+      maxAge: 30 * 24 * 60 * 60 * 1000,
+    }
+  })
+);
+
+app.use(passport.initialize());
+app.use(passport.session());
+
+
 
 // Home page route
 app.get("/", (req, res) => {
-    res.render("index");
+  res.render("index", { currentUser: req.user });
 });
 
+
+// Explore page route
+app.get("/explore", async (req, res) => {
+  try {
+    // 1. Get user's own blogs (only if user is logged in)
+    const userBlogs = req.user ? await db.query(
+      `SELECT blogs.*, users.name as author_name 
+       FROM blogs 
+       JOIN users ON blogs.user_id = users.id 
+       WHERE user_id = $1 
+       ORDER BY date DESC`,
+      [req.user.id]
+    ) : { rows: [] };
+    // If not logged in, userBlogs will be empty array
+
+    // 2. Get blogs from other users
+    const otherBlogs = req.user ? 
+      // If user is logged in, exclude their blogs
+      await db.query(
+        `SELECT blogs.*, users.name as author_name 
+         FROM blogs 
+         JOIN users ON blogs.user_id = users.id 
+         WHERE user_id != $1 
+         ORDER BY date DESC`,
+        [req.user.id]
+      ) 
+      : 
+      // If not logged in, get all blogs
+      await db.query(
+        `SELECT blogs.*, users.name as author_name 
+         FROM blogs 
+         JOIN users ON blogs.user_id = users.id 
+         ORDER BY date DESC`
+      );
+
+    // 3. Send data to the template
+    res.render("explore", { 
+      userBlogs: userBlogs.rows,
+      otherBlogs: otherBlogs.rows,
+      currentUser: req.user
+    });
+
+  } catch (err) {
+    console.log('Error loading blogs:', err);
+    res.status(500).send("Error loading blogs");
+  }
+});
+// Route to render individual blog post
+app.get("/blog/:id", async (req, res) => {
+  try {
+    const result = await db.query("SELECT * FROM blogs WHERE id = $1", [req.params.id]);
+    const blog = result.rows[0];
+
+    if (!blog) {
+      return res.status(404).send("Blog not found");
+    }
+
+    // Fetch comments for the blog
+    const commentsResult = await db.query("SELECT comments.*, users.name AS author_name FROM comments JOIN users ON comments.user_id = users.id WHERE blog_id = $1 ORDER BY date DESC", [blog.id]);
+    const comments = commentsResult.rows;
+
+    res.render("blog", { blog, comments, currentUser: req.user });
+  } catch (err) {
+    console.error('Error fetching blog:', err);
+    res.status(500).send("Error fetching blog");
+  }
+});
+
+// Routes for Google OAuth authentication
+app.get(
+  "/auth/google",
+  passport.authenticate("google", { 
+    scope: ["email", "profile"] 
+  })
+);
+
+app.get(
+  "/auth/google/callback",
+  passport.authenticate("google", {
+    successRedirect: "/explore",  // Redirect after successful login
+    failureRedirect: "/"         // Redirect if login fails
+  })
+);
+
+// Logout route
+app.get("/auth/logout", (req, res) => {
+  req.logout(function(err) {
+    if (err) { 
+      console.log('Error logging out:', err);
+      return next(err); 
+    }
+    res.redirect('/');  // Redirect to home page after logout
+  });
+});
+
+
 // Route to handle blog submissions
-app.post("/submit-blog", (req, res) => {
-  const { title, content } = req.body;
+app.post("/submit-blog", async (req, res) => {
 
-  const newBlog = {
-    id: blogs.length + 1,
-    title: title,
-    content: content,
-    date: new Date().toLocaleDateString(),
-  };
+  try{
+    const { title, content } = req.body;
+    const result = await db.query('insert into blogs (title, content, date, user_id) values ($1, $2, CURRENT_TIMESTAMP, $3)', 
+      [title, content, req.user.id]
+    )
+  } catch (err){
+    console.log('Error submitting blog:', err)
+  }
 
-  blogs.push(newBlog);
   res.redirect("/explore");
 });
 
-// Explore page route
-app.get("/explore", (req, res) => {
-  res.render("explore", { blogs: blogs });
-});
-
-// Route to render individual blog post
-app.get("/blog/:id", (req, res) => {
-    const blogId = parseInt(req.params.id);
-    const blog = blogs.find(b => b.id === blogId);
-
-    if (blog) {
-        res.render("blog", { blog: blog });
-    } else {
-        res.status(404).send("Blog not found");
-    }
-});
-
 // Route to delete any blog post
-app.post('/delete-blog/:id', (req, res) => {
-  const blogId = parseInt(req.params.id);
-  const blogIndex = blogs.findIndex(blog => blog.id === blogId);
+app.post("/delete-blog/:id", async (req, res) => {
+  try {
+    // Check if the user is authenticated
+    if (!req.isAuthenticated()) {
+      return res.redirect('/auth/signin'); // Redirect if not authenticated
+    }
 
-  if (blogIndex !== -1) {
-      blogs.splice(blogIndex, 1);  // Remove the blog from the array
+    // Delete the blog where the id matches and the user_id matches the current user
+    const result = await db.query(
+      "DELETE FROM blogs WHERE id = $1 AND user_id = $2",
+      [req.params.id, req.user.id]
+    );
+
+    // Check if any rows were affected (i.e., if the blog was found and deleted)
+    if (result.rowCount === 0) {
+      return res.status(404).send("Blog not found or not authorized to delete"); // Handle case where blog doesn't exist or user is not authorized
+    }
+
+    res.redirect("/explore"); // Redirect after deletion
+  } catch (err) {
+    console.error('Error deleting blog:', err);
+    res.status(500).send("Error deleting blog");
   }
-
-  res.redirect('/explore');  // Redirect back to the explore page after deletion
 });
 
 
 // Create page route
 app.get("/create", (req, res) => {
-  res.render("create");
+  if (req.isAuthenticated()) {
+    res.render('create', { currentUser: req.user });
+  } else {
+    res.redirect("/");
+  } 
 });
+
+passport.serializeUser((user, done) => {
+  done(null, user);
+});
+
+passport.deserializeUser((user, done) => {
+  done(null, user);
+});
+
+passport.use(
+  new GoogleStrategy.Strategy(
+    {
+      clientID: process.env.GOOGLE_CLIENT_ID,
+      clientSecret: process.env.GOOGLE_CLIENT_SECRET,
+      callbackURL: process.env.GOOGLE_CALLBACK_URL,
+    },
+    async function (request, accessToken, refreshToken, profile, done) {
+      try {
+        // This is where we use google_id to find or create users
+        const result = await db.query(
+          "SELECT * FROM users WHERE google_id = $1",
+          [profile.id]  // profile.id is the Google-provided ID
+        );
+
+        if (result.rows.length === 0) {
+          // New user - create account
+          const newUser = await db.query(
+            "INSERT INTO users (google_id, email, name) VALUES ($1, $2, $3) RETURNING *",
+            [profile.id, profile.email, profile.displayName]
+          );
+          return done(null, newUser.rows[0]);
+        }
+
+        // Existing user - log them in
+        return done(null, result.rows[0]);
+      } catch (err) {
+        return done(err);
+      }
+    }
+  )
+);
 
 // Start the server
 app.listen(port, () => {
   console.log(`Listening on port ${port}`);
 });
+
+
+app.post("/comment/:id", async (req, res) => {
+    if (!req.isAuthenticated()) {
+        return res.redirect('/auth/signin'); // Redirect to sign-in if not authenticated
+    }
+
+    try {
+        const { content } = req.body;
+        const blogId = req.params.id;
+
+        await db.query("INSERT INTO comments (blog_id, user_id, content) VALUES ($1, $2, $3)", [blogId, req.user.id, content]);
+        res.redirect(`/blog/${blogId}`); // Redirect back to the blog after submitting the comment
+    } catch (err) {
+        console.error('Error submitting comment:', err);
+        res.status(500).send("Error submitting comment");
+    }
+});
+
+// un-comment out the authentication code
+// implement google authentication properly with proper salted hashed passwords
+// implment database relations if necessary between the two tables created in pg
+// make sure only owner of a blog can delete a blog
+// have spearate sections for user blogs and public blogs (optional) 
+// fix the header for other pages when user already logged in
