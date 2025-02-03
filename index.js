@@ -25,7 +25,7 @@ const corsConfig = {
 
 env.config();
 
-const pgPool = new pg.Pool({
+const db = new pg.Pool({
   user: process.env.PG_USER,
   host: process.env.PG_HOST,
   database: process.env.PG_DATABASE,
@@ -217,11 +217,20 @@ app.get("/create", (req, res) => {
 });
 
 passport.serializeUser((user, done) => {
-  done(null, user);
+  done(null, user.id);
 });
 
-passport.deserializeUser((user, done) => {
-  done(null, user);
+passport.deserializeUser(async (id, done) => {
+  try {
+    const result = await db.query("SELECT * FROM users WHERE id = $1", [id]);
+    if (result.rows.length > 0) {
+      done(null, result.rows[0]);
+    } else {
+      done(null, null);
+    }
+  } catch (error) {
+    done(error, null);
+  }
 });
 
 passport.use(
