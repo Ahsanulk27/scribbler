@@ -5,7 +5,7 @@ import { fileURLToPath } from "url";
 import pg from "pg";
 import bcrypt from "bcrypt";
 import passport from "passport";
-import { Strategy } from "passport-local";
+import { Strategy as LocalStrategy } from "passport-local";
 import GoogleStrategy from "passport-google-oauth2";
 import session from "express-session";
 import env from "dotenv";
@@ -13,6 +13,8 @@ import pgSession from "connect-pg-simple";
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
+
+env.config();
 
 const app = express();
 const port = process.env.PORT || 10000;
@@ -23,9 +25,14 @@ const corsConfig = {
   methods: ["GET", "POST", "PUT", "DELETE"],
 };
 
-env.config();
+app.use(cors(corsConfig));
+app.use(express.static("public"));
+app.set("view engine", "ejs");
+app.set("views", path.join(__dirname, "views"));
+app.use(bodyParser.urlencoded({ extended: true }));
 
-const db = new pg.Pool({
+// Create a PostgreSQL pool and name it pgPool
+const pgPool = new pg.Pool({
   user: process.env.PG_USER,
   host: process.env.PG_HOST,
   database: process.env.PG_DATABASE,
@@ -33,27 +40,21 @@ const db = new pg.Pool({
   port: process.env.PG_PORT,
 });
 
-app.use(cors(corsConfig));
-
-app.use(express.static("public"));
-app.set('view engine', 'ejs');
-app.set('views', path.join(__dirname, 'views'));
-app.use(bodyParser.urlencoded({ extended: true }));
+// Optionally, alias pgPool as db so existing code using db.query() works.
+const db = pgPool;
 
 const PGStore = pgSession(session);
 
 app.use(
   session({
     store: new PGStore({
-      pool: pgPool,
+      pool: pgPool, // Use the pgPool variable here
       tableName: "session",
     }),
     secret: process.env.SESSION_SECRET,
     resave: false,
     saveUninitialized: false,
-    cookie: {
-      maxAge: 30 * 24 * 60 * 60 * 1000, // 30 days
-    },
+    cookie: { maxAge: 30 * 24 * 60 * 60 * 1000 }, // 30 days
   })
 );
 
