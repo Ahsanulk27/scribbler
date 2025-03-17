@@ -26,19 +26,45 @@ const corsConfig = {
 };
 
 app.use(cors(corsConfig));
-app.use(express.static("public"));
+// Serve static files from the public directory
+
+app.use(express.static(path.join(__dirname, "public")));
 app.set("view engine", "ejs");
 app.set("views", path.join(__dirname, "views"));
 app.use(bodyParser.urlencoded({ extended: true }));
 
 // Create a PostgreSQL pool and name it pgPool
-const pgPool = new pg.Pool({
-  user: process.env.PG_USER,
-  host: process.env.PG_HOST,
-  database: process.env.PG_DATABASE,
-  password: process.env.PG_PASSWORD,
-  port: process.env.PG_PORT,
-});
+let pgPool;
+try {
+  pgPool = new pg.Pool({
+    connectionString: process.env.DATABASE_URL,
+    ssl: {
+      rejectUnauthorized: false // This allows self-signed certificates
+    }
+  });
+  
+  // Test the connection
+  pgPool.on('error', (err) => {
+    console.error('Unexpected error on idle client', err);
+    process.exit(-1);
+  });
+  
+  console.log("Successfully connected to the database");
+} catch (error) {
+  console.error("Error with primary connection string:", error);
+  try {
+    pgPool = new pg.Pool({
+      connectionString: process.env.POSTGRES_URL_NON_POOLING,
+      ssl: {
+        rejectUnauthorized: false
+      }
+    });
+    console.log("Successfully connected using non-pooling connection");
+  } catch (fallbackError) {
+    console.error("Error with fallback connection:", fallbackError);
+    process.exit(1);
+  }
+}
 
 // Optionally, alias pgPool as db so existing code using db.query() works.
 const db = pgPool;
@@ -132,9 +158,19 @@ app.get("/blog/:id", async (req, res) => {
   }
 });
 
+// Set up environment-specific variables
+const isProduction = process.env.NODE_ENV === 'production';
+const callbackURL = isProduction 
+  ? 'https://scribbler-two.vercel.app/auth/google/callback'
+  : 'http://localhost:10000/auth/google/callback';
+
 // Routes for Google OAuth authentication
 app.get(
   "/auth/google",
+  (req, res, next) => {
+    console.log("Starting Google authentication process");
+    next();
+  },
   passport.authenticate("google", { 
     scope: ["email", "profile"] 
   })
@@ -142,10 +178,18 @@ app.get(
 
 app.get(
   "/auth/google/callback",
+  (req, res, next) => {
+    console.log("Received callback from Google");
+    next();
+  },
   passport.authenticate("google", {
-    successRedirect: "/explore",  // Redirect after successful login
-    failureRedirect: "/"         // Redirect if login fails
-  })
+    successRedirect: "/explore",
+    failureRedirect: "/"
+  }),
+  (err, req, res, next) => {
+    console.error("Error in Google authentication callback:", err);
+    res.redirect("/?error=auth_failed");
+  }
 );
 
 // Logout route
@@ -239,7 +283,8 @@ passport.use(
     {
       clientID: process.env.GOOGLE_CLIENT_ID,
       clientSecret: process.env.GOOGLE_CLIENT_SECRET,
-      callbackURL: process.env.GOOGLE_CALLBACK_URL,
+      callbackURL: process.env.GOOGLE_CALLBACK_URL || callbackURL,
+      passReqToCallback: true
     },
     async function (request, accessToken, refreshToken, profile, done) {
       try {
@@ -248,11 +293,16 @@ passport.use(
         const result = await db.query("SELECT * FROM users WHERE google_id = $1", [profile.id]);
         if (result.rows.length === 0) {
           // Create a new user if none exist
-          const newUser = await db.query(
-            "INSERT INTO users (google_id, email, name) VALUES ($1, $2, $3) RETURNING *",
-            [profile.id, profile.email, profile.displayName]
-          );
-          return done(null, newUser.rows[0]);
+          try {
+            const newUser = await db.query(
+              "INSERT INTO users (google_id, email, name) VALUES ($1, $2, $3) RETURNING *",
+              [profile.id, profile.email, profile.displayName]
+            );
+            return done(null, newUser.rows[0]);
+          } catch (insertError) {
+            console.error("Error creating new user:", insertError);
+            return done(insertError, null);
+          }
         }
         // Found the user, return it
         return done(null, result.rows[0]);
