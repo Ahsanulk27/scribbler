@@ -268,3 +268,6 @@ app.listen(port, "0.0.0.0", () => {
   console.log(`Listening on port ${port} and binding to 0.0.0.0`);
 });
 
+// Export the Express app for Vercel
+export default app;
+
